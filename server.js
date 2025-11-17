@@ -8,17 +8,17 @@ app.use(express.json());
 
 // -------------------------------------------
 // ✅ MySQL Connection (Render + Railway Ready)
-// -------------------------------------------
 const db = mysql.createConnection({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "mydb",
-  password: process.env.DB_PASSWORD || "root",
-  database: process.env.DB_NAME || "college_db",
-  port: process.env.DB_PORT || 3306,
-   ssl: {
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
+  ssl: {
     rejectUnauthorized: false
   }
 });
+
 
 // Connect to MySQL
 db.connect((err) => {
