@@ -6,23 +6,25 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ MySQL Connection
+// -------------------------------------------
+// ✅ MySQL Connection (Render + Railway Ready)
+// -------------------------------------------
 const db = mysql.createConnection({
-  host: "localhost",
-  user: "mydb",
-  password: "root",
-  database: "college_db",
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "mydb",
+  password: process.env.DB_PASSWORD || "root",
+  database: process.env.DB_NAME || "college_db",
+  port: process.env.DB_PORT || 3306
 });
 
+// Connect to MySQL
 db.connect((err) => {
   if (err) {
     console.error("❌ MySQL connection failed:", err.message);
   } else {
     console.log("✅ Connected to MySQL Database!");
 
-  
-
-    // ✅ Create Notices Table with status (for archiving)
+    // Create "notices" table if not exists
     db.query(`
       CREATE TABLE IF NOT EXISTS notices (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -37,123 +39,142 @@ db.connect((err) => {
   }
 });
 
+// ------------------------------------------------------------------
+// 🔹 API ROUTES
+// ------------------------------------------------------------------
 
-// ✅ Get all active notices (auto-archive expired)
+// Get Active Notices (Auto-Archive Expired)
 app.get("/notices", (req, res) => {
   const now = new Date();
 
-  // Auto-archive expired ones
-  db.query("UPDATE notices SET status='archived' WHERE deadline < ? AND status='active'", [now], (err) => {
-    if (err) console.error("⚠️ Error auto-archiving notices:", err);
-  });
+  db.query(
+    "UPDATE notices SET status='archived' WHERE deadline < ? AND status='active'",
+    [now],
+    (err) => {
+      if (err) console.error("⚠️ Auto-archive failed:", err);
+    }
+  );
 
-  // Fetch active
-  db.query("SELECT * FROM notices WHERE status='active' ORDER BY uploadTime DESC", (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
-  });
+  db.query(
+    "SELECT * FROM notices WHERE status='active' ORDER BY uploadTime DESC",
+    (err, results) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(results);
+    }
+  );
 });
 
-// ✅ Get all archived notices
+// Get Archived Notices
 app.get("/notices/archived", (req, res) => {
-  db.query("SELECT * FROM notices WHERE status='archived' ORDER BY uploadTime DESC", (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
-  });
+  db.query(
+    "SELECT * FROM notices WHERE status='archived' ORDER BY uploadTime DESC",
+    (err, results) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(results);
+    }
+  );
 });
 
-// ✅ Add new notice
+// Add New Notice
 app.post("/notices", (req, res) => {
   const { noticeTitle, noticeDate, deadline, noticeLink } = req.body;
+
   if (!noticeTitle || !noticeDate || !deadline || !noticeLink)
     return res.status(400).json({ message: "All fields are required" });
 
-  const sql = `
-    INSERT INTO notices (noticeTitle, noticeDate, deadline, noticeLink)
-    VALUES (?, ?, ?, ?)
-  `;
-  db.query(sql, [noticeTitle, noticeDate, deadline, noticeLink], (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ id: result.insertId, noticeTitle, noticeDate, deadline, noticeLink });
-  });
+  db.query(
+    `INSERT INTO notices (noticeTitle, noticeDate, deadline, noticeLink)
+     VALUES (?, ?, ?, ?)`,
+    [noticeTitle, noticeDate, deadline, noticeLink],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({
+        id: result.insertId,
+        noticeTitle,
+        noticeDate,
+        deadline,
+        noticeLink,
+      });
+    }
+  );
 });
 
-// ✅ Update existing notice
+// Update Notice
 app.put("/notices/:id", (req, res) => {
   const { id } = req.params;
   const { noticeTitle, noticeDate, deadline, noticeLink } = req.body;
 
-  const sql = `
-    UPDATE notices 
-    SET noticeTitle=?, noticeDate=?, deadline=?, noticeLink=? 
-    WHERE id=?
-  `;
-  db.query(sql, [noticeTitle, noticeDate, deadline, noticeLink, id], (err) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ message: "✏️ Notice updated successfully!" });
-  });
+  db.query(
+    `UPDATE notices 
+     SET noticeTitle=?, noticeDate=?, deadline=?, noticeLink=? 
+     WHERE id=?`,
+    [noticeTitle, noticeDate, deadline, noticeLink, id],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: "✏️ Notice updated successfully!" });
+    }
+  );
 });
 
-// ✅ Archive a notice manually
+// Archive Notice
 app.put("/notices/archive/:id", (req, res) => {
-  const { id } = req.params;
-  db.query("UPDATE notices SET status='archived' WHERE id=?", [id], (err) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ message: "🗂️ Notice archived successfully!" });
-  });
+  db.query(
+    "UPDATE notices SET status='archived' WHERE id=?",
+    [req.params.id],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: "🗂️ Notice archived successfully!" });
+    }
+  );
 });
 
-
-// ♻️ Unarchive a notice manually
+// Unarchive Notice
 app.put("/notices/unarchive/:id", (req, res) => {
-  const { id } = req.params;
-  db.query("UPDATE notices SET status='active' WHERE id=?", [id], (err) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ message: "♻️ Notice unarchived successfully!" });
-  });
+  db.query(
+    "UPDATE notices SET status='active' WHERE id=?",
+    [req.params.id],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: "♻️ Notice unarchived successfully!" });
+    }
+  );
 });
 
-
-// ✅ DeleteFromFrontend a notice
+// Delete Notice
 app.delete("/notices/:id", (req, res) => {
-  const { id } = req.params;
-  db.query("DELETE FROM notices WHERE id=?", [id], (err) => {
+  db.query("DELETE FROM notices WHERE id=?", [req.params.id], (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ message: "🗑️ Notice deleted successfully!" });
   });
 });
 
-
-
-
-
-
-
-// ✅ USER LOGIN API
+// -------------------------------------------
+// USER LOGIN API
+// -------------------------------------------
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password)
     return res.status(400).json({ message: "All fields are required" });
 
-  const sql = "SELECT * FROM users WHERE username = ? AND password = ?";
-  db.query(sql, [username, password], (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (result.length > 0) {
-      res.json({ success: true, message: "Login successful!" });
-    } else {
-      res.status(401).json({ success: false, message: "Invalid credentials" });
+  db.query(
+    "SELECT * FROM users WHERE username = ? AND password = ?",
+    [username, password],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (result.length > 0) {
+        res.json({ success: true, message: "Login successful!" });
+      } else {
+        res.status(401).json({ success: false, message: "Invalid credentials" });
+      }
     }
-  });
+  );
 });
 
-
-
-
-
-// ================================================================
-// 🚀 Run Server
-// ================================================================
-app.listen(5000, () => {
-  console.log("🚀 Server running on http://localhost:5000");
+// ------------------------------------------------------------------
+// 🚀 START SERVER (Render will use PORT from ENV)
+// ------------------------------------------------------------------
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
