@@ -14,7 +14,10 @@ const db = mysql.createConnection({
   user: process.env.DB_USER || "mydb",
   password: process.env.DB_PASSWORD || "root",
   database: process.env.DB_NAME || "college_db",
-  port: process.env.DB_PORT || 3306
+  port: process.env.DB_PORT || 3306,
+   ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 // Connect to MySQL
