@@ -7,28 +7,29 @@ app.use(cors());
 app.use(express.json());
 
 // -------------------------------------------
-// ✅ MySQL Connection (Render + Railway Ready)
+// ✅ MySQL Connection (Railway Ready)
+// -------------------------------------------
 const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT,
+  host: process.env.DB_HOST,          // ballast.proxy.rlwy.net
+  user: process.env.DB_USER,          // root
+  password: process.env.DB_PASSWORD,  // DraErkdqJRKKwoLrzOHxMIqFLIXzyvZB
+  database: process.env.DB_NAME,      // railway
+  port: process.env.DB_PORT,          // 37684
   ssl: {
-      require: true,
     rejectUnauthorized: false
-  }
+  },
+  connectTimeout: 20000          // ⬅️ Prevent ETIMEDOUT
 });
 
-
-// Connect to MySQL
+// -------------------------------------------
+// 🚀 Connect to MySQL
+// -------------------------------------------
 db.connect((err) => {
   if (err) {
     console.error("❌ MySQL connection failed:", err.message);
   } else {
     console.log("✅ Connected to MySQL Database!");
 
-    // Create "notices" table if not exists
     db.query(`
       CREATE TABLE IF NOT EXISTS notices (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -43,20 +44,17 @@ db.connect((err) => {
   }
 });
 
-// ------------------------------------------------------------------
+// -------------------------------------------
 // 🔹 API ROUTES
-// ------------------------------------------------------------------
+// -------------------------------------------
 
-// Get Active Notices (Auto-Archive Expired)
+// Get Active Notices
 app.get("/notices", (req, res) => {
   const now = new Date();
 
   db.query(
     "UPDATE notices SET status='archived' WHERE deadline < ? AND status='active'",
-    [now],
-    (err) => {
-      if (err) console.error("⚠️ Auto-archive failed:", err);
-    }
+    [now]
   );
 
   db.query(
@@ -79,7 +77,7 @@ app.get("/notices/archived", (req, res) => {
   );
 });
 
-// Add New Notice
+// Add Notice
 app.post("/notices", (req, res) => {
   const { noticeTitle, noticeDate, deadline, noticeLink } = req.body;
 
@@ -92,13 +90,7 @@ app.post("/notices", (req, res) => {
     [noticeTitle, noticeDate, deadline, noticeLink],
     (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({
-        id: result.insertId,
-        noticeTitle,
-        noticeDate,
-        deadline,
-        noticeLink,
-      });
+      res.json({ id: result.insertId });
     }
   );
 });
@@ -109,13 +101,12 @@ app.put("/notices/:id", (req, res) => {
   const { noticeTitle, noticeDate, deadline, noticeLink } = req.body;
 
   db.query(
-    `UPDATE notices 
-     SET noticeTitle=?, noticeDate=?, deadline=?, noticeLink=? 
+    `UPDATE notices SET noticeTitle=?, noticeDate=?, deadline=?, noticeLink=?
      WHERE id=?`,
     [noticeTitle, noticeDate, deadline, noticeLink, id],
     (err) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ message: "✏️ Notice updated successfully!" });
+      res.json({ message: "Updated successfully!" });
     }
   );
 });
@@ -127,7 +118,7 @@ app.put("/notices/archive/:id", (req, res) => {
     [req.params.id],
     (err) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ message: "🗂️ Notice archived successfully!" });
+      res.json({ message: "Archived!" });
     }
   );
 });
@@ -139,45 +130,43 @@ app.put("/notices/unarchive/:id", (req, res) => {
     [req.params.id],
     (err) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ message: "♻️ Notice unarchived successfully!" });
+      res.json({ message: "Unarchived!" });
     }
   );
 });
 
 // Delete Notice
 app.delete("/notices/:id", (req, res) => {
-  db.query("DELETE FROM notices WHERE id=?", [req.params.id], (err) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ message: "🗑️ Notice deleted successfully!" });
-  });
-});
-
-// -------------------------------------------
-// USER LOGIN API
-// -------------------------------------------
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
-
-  if (!username || !password)
-    return res.status(400).json({ message: "All fields are required" });
-
   db.query(
-    "SELECT * FROM users WHERE username = ? AND password = ?",
-    [username, password],
-    (err, result) => {
+    "DELETE FROM notices WHERE id=?",
+    [req.params.id],
+    (err) => {
       if (err) return res.status(500).json({ error: err.message });
-      if (result.length > 0) {
-        res.json({ success: true, message: "Login successful!" });
-      } else {
-        res.status(401).json({ success: false, message: "Invalid credentials" });
-      }
+      res.json({ message: "Deleted!" });
     }
   );
 });
 
-// ------------------------------------------------------------------
-// 🚀 START SERVER (Render will use PORT from ENV)
-// ------------------------------------------------------------------
+// User Login
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+
+  db.query(
+    "SELECT * FROM users WHERE username=? AND password=?",
+    [username, password],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (result.length > 0)
+        res.json({ success: true });
+      else
+        res.status(401).json({ success: false });
+    }
+  );
+});
+
+// -------------------------------------------
+// 🚀 START SERVER (Render uses PORT from ENV)
+// -------------------------------------------
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
