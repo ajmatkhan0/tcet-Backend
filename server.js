@@ -21,6 +21,10 @@ const db = mysql.createConnection({
   acquireTimeout: 20000
 });
 
+console.log("DB_HOST:", process.env.DB_HOST);
+console.log("DB_PORT:", process.env.DB_PORT);
+console.log("DB_USER:", process.env.DB_USER);
+console.log("DB_NAME:", process.env.DB_NAME);
 
 // CONNECT
 db.connect((err) => {
@@ -30,6 +34,7 @@ db.connect((err) => {
   }
 
   console.log("✅ Connected to MySQL Database!");
+  
 
   db.query(`
     CREATE TABLE IF NOT EXISTS notices (
