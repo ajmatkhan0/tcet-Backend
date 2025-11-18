@@ -16,7 +16,7 @@ const db = mysql.createConnection({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
-  ssl: { rejectUnauthorized: true },
+  ssl: false,
   enableKeepAlive: true,
   connectTimeout: 20000,
   ipv6Fallback: true  // ⭐ FORCE IPv4
