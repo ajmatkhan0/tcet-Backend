@@ -7,26 +7,24 @@ app.use(cors());
 app.use(express.json());
 
 // -------------------------------------------
-// ✅ MySQL Connection (Railway + Render Ready)
+// MYSQL CONNECTION (RAILWAY READY)
 // -------------------------------------------
 const db = mysql.createConnection({
-  host: process.env.DB_HOST,        // ballast.proxy.rlwy.net
-  user: process.env.DB_USER,        // root
-  password: process.env.DB_PASSWORD, // Railway password
-  database: process.env.DB_NAME,    // railway
-  port: process.env.DB_PORT,        // 37684
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: Number(process.env.DB_PORT),
 
   ssl: {
-    rejectUnauthorized: true
+    rejectUnauthorized: false   // ✅ Railway fix
   },
 
-  connectTimeout: 20000,   // prevents ETIMEDOUT
+  connectTimeout: 20000,
   acquireTimeout: 20000
 });
 
-// -------------------------------------------
-// 🚀 CONNECT TO MYSQL
-// -------------------------------------------
+// CONNECT
 db.connect((err) => {
   if (err) {
     console.error("❌ MySQL connection failed:", err);
@@ -49,13 +47,21 @@ db.connect((err) => {
 });
 
 // -------------------------------------------
-// 🔹 API ROUTES
+// HOME ROUTE (Fixes Cannot GET /)
+// -------------------------------------------
+app.get("/", (req, res) => {
+  res.send("TCET NoticeBoard Backend Running ✔");
+});
+
+// -------------------------------------------
+//  API ROUTES
 // -------------------------------------------
 
 // Get Active Notices
 app.get("/notices", (req, res) => {
   const now = new Date();
 
+  // Auto-archive expired
   db.query(
     "UPDATE notices SET status='archived' WHERE deadline < ? AND status='active'",
     [now]
@@ -70,7 +76,7 @@ app.get("/notices", (req, res) => {
   );
 });
 
-// Get Archived Notices
+// Archived Notices
 app.get("/notices/archived", (req, res) => {
   db.query(
     "SELECT * FROM notices WHERE status='archived' ORDER BY uploadTime DESC",
@@ -99,7 +105,7 @@ app.post("/notices", (req, res) => {
   );
 });
 
-// Update Notice
+// CRUD
 app.put("/notices/:id", (req, res) => {
   const { id } = req.params;
   const { noticeTitle, noticeDate, deadline, noticeLink } = req.body;
@@ -114,59 +120,29 @@ app.put("/notices/:id", (req, res) => {
   );
 });
 
-// Archive Notice
 app.put("/notices/archive/:id", (req, res) => {
-  db.query(
-    "UPDATE notices SET status='archived' WHERE id=?",
-    [req.params.id],
-    (err) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ message: "Archived!" });
-    }
-  );
+  db.query("UPDATE notices SET status='archived' WHERE id=?", [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: "Archived!" });
+  });
 });
 
-// Unarchive Notice
 app.put("/notices/unarchive/:id", (req, res) => {
-  db.query(
-    "UPDATE notices SET status='active' WHERE id=?",
-    [req.params.id],
-    (err) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ message: "Unarchived!" });
-    }
-  );
+  db.query("UPDATE notices SET status='active' WHERE id=?", [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: "Unarchived!" });
+  });
 });
 
-// Delete Notice
 app.delete("/notices/:id", (req, res) => {
-  db.query(
-    "DELETE FROM notices WHERE id=?",
-    [req.params.id],
-    (err) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ message: "Deleted!" });
-    }
-  );
-});
-
-// Login
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
-
-  db.query(
-    "SELECT * FROM users WHERE username=? AND password=?",
-    [username, password],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (result.length > 0) res.json({ success: true });
-      else res.status(401).json({ success: false });
-    }
-  );
+  db.query("DELETE FROM notices WHERE id=?", [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: "Deleted!" });
+  });
 });
 
 // -------------------------------------------
-// 🚀 START SERVER
+// START SERVER
 // -------------------------------------------
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
