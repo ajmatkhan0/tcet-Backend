@@ -1,3 +1,4 @@
+process.env.NODE_NO_IPV6 = '1';
 const express = require("express");
 const mysql = require("mysql2");
 const cors = require("cors");
@@ -15,7 +16,12 @@ const db = mysql.createConnection({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
+  ssl: { rejectUnauthorized: true },
+  enableKeepAlive: true,
+  connectTimeout: 20000,
+  ipv6Fallback: true  // ⭐ FORCE IPv4
 });
+
 
 
 console.log("DB_HOST:", process.env.DB_HOST);
