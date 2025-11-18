@@ -16,10 +16,11 @@ const db = mysql.createConnection({
   database: process.env.DB_NAME,
   port: Number(process.env.DB_PORT),
 
- ssl: false,
+  ssl: false,   // IMPORTANT for Railway FREE tier
   connectTimeout: 20000,
   acquireTimeout: 20000
 });
+
 
 // CONNECT
 db.connect((err) => {
